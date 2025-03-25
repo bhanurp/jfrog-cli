@@ -31,7 +31,7 @@ jobs:
         uses: jfrog/.github/actions/install-go-with-cache@main
 
       - name: Install local Artifactory
-        uses: jfrog/.github/actions/install-local-artifactory@main
+        uses: bhanurp/.github/actions/install-local-artifactory@fix-rt-setup-macos
         with:
           RTLIC: ${{ secrets.RTLIC }}
 
