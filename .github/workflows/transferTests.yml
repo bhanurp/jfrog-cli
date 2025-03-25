@@ -39,6 +39,12 @@ jobs:
       - name: Run transfer tests
         run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.transfer --test.installDataTransferPlugin --jfrog.url=http://127.0.0.1:8082 --jfrog.targetUrl=${{ secrets.PLATFORM_URL }} --jfrog.targetAdminToken=${{ secrets.PLATFORM_ADMIN_TOKEN }} --jfrog.home=${{ runner.temp }} --ci.runId=${{ runner.os }}-transfer-7
 
+      - name: Upload Artifactory Logs
+        if: always()  # ensures logs are uploaded even if previous step fails
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifactory-logs
+          path: ~/artifactory-logs.zip
   Transfer-Artifactory-6-Tests:
     if: contains(github.event.pull_request.labels.*.name, 'safe to test') || github.event_name == 'push'
     name: artifactory-6
@@ -62,3 +68,10 @@ jobs:
 
       - name: Run transfer tests
         run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.transfer --test.installDataTransferPlugin --jfrog.targetUrl=${{ secrets.PLATFORM_URL }} --jfrog.targetAdminToken=${{ secrets.PLATFORM_ADMIN_TOKEN }} --jfrog.home=${{ runner.temp }} --ci.runId=${{ runner.os }}-transfer-6
+
+      - name: Upload Artifactory Logs
+        if: always()  # ensures logs are uploaded even if previous step fails
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifactory-logs
+          path: ~/artifactory-logs.zip

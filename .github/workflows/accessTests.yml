@@ -37,3 +37,10 @@ jobs:
 
       - name: Run Access tests
         run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.access --jfrog.url=http://127.0.0.1:8082 --jfrog.adminToken=${{ env.JFROG_TESTS_LOCAL_ACCESS_TOKEN }}
+
+      - name: Upload Artifactory Logs
+        if: always()  # ensures logs are uploaded even if previous step fails
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifactory-logs
+          path: ~/artifactory-logs.zip

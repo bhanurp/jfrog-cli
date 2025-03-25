@@ -44,3 +44,10 @@ jobs:
         env:
           YARN_IGNORE_NODE: 1
         run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.npm
+
+      - name: Upload Artifactory Logs
+        if: always()  # ensures logs are uploaded even if previous step fails
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifactory-logs
+          path: ~/artifactory-logs.zip
