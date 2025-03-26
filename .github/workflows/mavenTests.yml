@@ -48,5 +48,5 @@ jobs:
         if: always()  # ensures logs are uploaded even if previous step fails
         uses: actions/upload-artifact@v4
         with:
-          name: artifactory-logs
+          name: artifactory-logs-${{ runner.os }}
           path: ~/artifactory-logs.zip
