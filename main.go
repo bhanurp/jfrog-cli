@@ -273,6 +273,7 @@ func getCommands() ([]cli.Command, error) {
 			HelpName:     corecommon.CreateUsage("how", aiDocs.GetDescription(), aiDocs.Usage),
 			BashComplete: corecommon.CreateBashCompletionFunc(),
 			Action:       ai.HowCmd,
+			Hidden:       true,
 		},
 		{
 			Name:         "access-token-create",
