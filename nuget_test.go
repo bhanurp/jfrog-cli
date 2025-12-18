@@ -164,8 +164,9 @@ func testNugetCmd(t *testing.T, projectPath, buildName, buildNumber string, expe
 }
 
 // Add allow insecure connection for testings to work with localhost server
-func allowInsecureConnectionForTests(args *[]string) {
+func allowInsecureConnectionForTests(args *[]string) *[]string {
 	*args = append(*args, "--allow-insecure-connections")
+	return args
 }
 
 func assertNugetDependencies(t *testing.T, module buildInfo.Module, moduleName string) {
