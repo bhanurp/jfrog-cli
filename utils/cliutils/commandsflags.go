@@ -551,6 +551,13 @@ const (
 	// *** Stats Commands's flags ***
 	Stats = "stats"
 
+	// *** Skill Commands' keys and flags ***
+	SkillSearch  = "skill-search"
+	SkillInstall = "skill-install"
+	skillQuery   = "query"
+	skillRepo    = "skill-repo"
+	skillVersion = "skill-version"
+
 	// *** TransferFiles Commands' flags ***
 	transferFilesPrefix = "transfer-files-"
 	Filestore           = "filestore"
@@ -1767,6 +1774,18 @@ var flagsMap = map[string]cli.Flag{
 		Name:  RepoType,
 		Usage: "[Default: model] Type of repository. Can be 'model', 'dataset'.` `",
 	},
+	skillQuery: cli.StringFlag{
+		Name:  skillQuery,
+		Usage: "[Mandatory] Search query string.` `",
+	},
+	skillRepo: cli.StringFlag{
+		Name:  "repo",
+		Usage: "[Mandatory] Artifactory repository key.` `",
+	},
+	skillVersion: cli.StringFlag{
+		Name:  Version,
+		Usage: "[Optional] Skill version to install. If not provided, lists available versions.` `",
+	},
 }
 
 var commandFlags = map[string][]string{
@@ -2117,6 +2136,12 @@ var commandFlags = map[string][]string{
 	},
 	Setup: {
 		serverId, url, user, password, accessToken, sshPassphrase, sshKeyPath, ClientCertPath, ClientCertKeyPath, Project, setupRepo,
+	},
+	SkillSearch: {
+		skillQuery, skillRepo, serverId,
+	},
+	SkillInstall: {
+		skillRepo, skillVersion, serverId,
 	},
 }
 

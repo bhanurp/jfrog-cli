@@ -15,6 +15,7 @@ const (
 	CmdConfig         = "config"
 	CmdOptions        = "options"
 	CmdPipelines      = "pl"
+	CmdSkill          = "skill"
 
 	// Common
 	Retries                       = 3

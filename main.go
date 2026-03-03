@@ -35,6 +35,7 @@ import (
 	summaryDocs "github.com/jfrog/jfrog-cli/docs/general/summary"
 	tokenDocs "github.com/jfrog/jfrog-cli/docs/general/token"
 	"github.com/jfrog/jfrog-cli/general/login"
+	"github.com/jfrog/jfrog-cli/general/skill"
 	"github.com/jfrog/jfrog-cli/general/summary"
 	"github.com/jfrog/jfrog-cli/general/token"
 	"github.com/jfrog/jfrog-cli/missioncontrol"
@@ -294,6 +295,12 @@ func getCommands() ([]cli.Command, error) {
 			HelpName:     corecommon.CreateUsage("how", aiDocs.GetDescription(), aiDocs.Usage),
 			BashComplete: corecommon.CreateBashCompletionFunc(),
 			Action:       ai.HowCmd,
+		},
+		{
+			Name:        cliutils.CmdSkill,
+			Usage:       "Skill commands.",
+			Subcommands: skill.GetCommands(),
+			Category:    otherCategory,
 		},
 		{
 			Name:         "access-token-create",
