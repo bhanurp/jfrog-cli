@@ -19,6 +19,13 @@ on:
         description: "Random data size in MB (the single big layer)"
         default: "2000"
         required: true
+  # Also run on push to this perf branch so the workflow can be exercised
+  # from a fork without needing to be on the default branch.
+  push:
+    branches:
+      - "perf/docker-push-versions-comparison"
+    paths:
+      - ".github/workflows/dockerPushPerf.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,7 +33,7 @@ concurrency:
 
 jobs:
   perf:
-    name: jf ${{ matrix.cli }} · snapshotter=${{ !matrix.disable-containerd-snapshotter }} · ${{ github.event.inputs.image_size_mb }}MB
+    name: jf ${{ matrix.cli }} · snapshotter=${{ !matrix.disable-containerd-snapshotter }} · ${{ github.event.inputs.image_size_mb || '2000' }}MB
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -99,7 +106,7 @@ jobs:
       - name: Generate unique large image
         id: img
         run: |
-          SIZE_MB="${{ github.event.inputs.image_size_mb }}"
+          SIZE_MB="${{ github.event.inputs.image_size_mb || '2000' }}"
           # Unique tag per matrix cell so Artifactory sees a different path too.
           CELL_ID="${{ matrix.cli }}-snap${{ !matrix.disable-containerd-snapshotter }}-${{ github.run_id }}"
           TAG="perf-${CELL_ID//./-}"
