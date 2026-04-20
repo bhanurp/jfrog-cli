@@ -1,0 +1,192 @@
+name: Docker push perf (2.97 vs 2.98 vs 2.99)
+
+# Measures wall-clock time of `jf docker push` with build-info collection across
+# three JFrog CLI versions on a single GitHub-hosted runner, to quantify the
+# regression introduced in 2.98.0 (PR jfrog-cli-artifactory#410 - WithUnbufferedOpener).
+#
+# Each matrix cell:
+#   1. Generates a UNIQUE image (random content, different layer digests) so no
+#      Artifactory-side cache can be reused across runs.
+#   2. Pushes to a UNIQUE repository path so path-level caches also don't apply.
+#   3. Times only the `jf docker push ... --build-name` call.
+#
+# Triggered manually via workflow_dispatch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_size_mb:
+        description: "Random data size in MB (the single big layer)"
+        default: "2000"
+        required: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  perf:
+    name: jf ${{ matrix.cli }} · snapshotter=${{ !matrix.disable-containerd-snapshotter }} · ${{ github.event.inputs.image_size_mb }}MB
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cli: ["2.97.0", "2.98.0", "2.99.0"]
+        disable-containerd-snapshotter: [false]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Configure Docker (legacy snapshotter)
+        if: matrix.disable-containerd-snapshotter == true
+        run: |
+          sudo bash -c 'cat > /etc/docker/daemon.json <<EOF
+          {
+            "insecure-registries": ["localhost:8082"],
+            "features": { "containerd-snapshotter": false }
+          }
+          EOF'
+          sudo systemctl restart docker
+          docker info | grep -E "Storage Driver|driver-type" || true
+
+      - name: Configure Docker (containerd snapshotter)
+        if: matrix.disable-containerd-snapshotter == false
+        run: |
+          sudo bash -c 'cat > /etc/docker/daemon.json <<EOF
+          {
+            "insecure-registries": ["localhost:8082"]
+          }
+          EOF'
+          sudo systemctl restart docker
+          docker info | grep -E "Storage Driver|driver-type" || true
+
+      - name: Start local Artifactory
+        run: |
+          cd testdata/docker/artifactory
+          ./start.sh
+        env:
+          RTLIC: ${{ secrets.RTLIC }}
+          GOPROXY: direct
+
+      - name: Wait for Artifactory
+        run: |
+          timeout 600s bash -c 'while [[ "$(curl -s -o /dev/null -w "%{http_code}" localhost:8082)" != "200" ]]; do sleep 5; done'
+          echo "Artifactory is up"
+
+      - name: Create docker-local repo
+        run: |
+          curl -sS -u admin:password -X PUT "http://localhost:8082/artifactory/api/repositories/docker-local" \
+            -H "Content-Type: application/json" \
+            -d '{"key":"docker-local","rclass":"local","packageType":"docker","dockerApiVersion":"V2"}'
+          echo
+
+      - name: Docker login to local Artifactory
+        run: echo password | docker login -u admin --password-stdin localhost:8082
+
+      - name: Install jf ${{ matrix.cli }}
+        run: |
+          curl -sSL -o /usr/local/bin/jf "https://releases.jfrog.io/artifactory/jfrog-cli/v2-jf/${{ matrix.cli }}/jfrog-cli-linux-amd64/jf"
+          chmod +x /usr/local/bin/jf
+          jf --version
+          jf c add perf-rt --url=http://localhost:8082 --user=admin --password=password --interactive=false --enc-password=false
+
+      - name: Generate unique large image
+        id: img
+        run: |
+          SIZE_MB="${{ github.event.inputs.image_size_mb }}"
+          # Unique tag per matrix cell so Artifactory sees a different path too.
+          CELL_ID="${{ matrix.cli }}-snap${{ !matrix.disable-containerd-snapshotter }}-${{ github.run_id }}"
+          TAG="perf-${CELL_ID//./-}"
+          IMG="localhost:8082/docker-local/bhanur-perf/${TAG}:latest"
+          echo "image=$IMG" >> "$GITHUB_OUTPUT"
+
+          t0=$(date +%s)
+          docker run --name big alpine sh -c "dd if=/dev/urandom of=/bigfile bs=1M count=${SIZE_MB} status=none"
+          docker commit big "local-perf:${TAG}"
+          docker tag "local-perf:${TAG}" "$IMG"
+          docker rm -f big >/dev/null
+          t1=$(date +%s)
+          SIZE=$(docker inspect "local-perf:${TAG}" --format '{{.Size}}')
+          DIGEST=$(docker inspect "local-perf:${TAG}" --format '{{.Id}}')
+          echo "::notice title=Image prepared::$IMG · $((SIZE/1024/1024)) MB · $DIGEST · gen_time=$((t1-t0))s"
+          echo "gen_seconds=$((t1-t0))" >> "$GITHUB_OUTPUT"
+          echo "image_size_bytes=$SIZE" >> "$GITHUB_OUTPUT"
+
+      - name: Run jf docker push + build-info (MEASURED)
+        id: perf
+        run: |
+          IMG="${{ steps.img.outputs.image }}"
+          BNAME="perf-run-${{ github.run_id }}-${{ matrix.cli }}"
+          BNUM="${{ github.run_number }}"
+
+          # Timed run; capture wall, user, sys.
+          T=$(mktemp)
+          /usr/bin/time -v -o "$T" jf docker push "$IMG" --build-name="$BNAME" --build-number="$BNUM" 2>&1 | tee push.log | tail -50 || true
+          echo "--- time -v ---"
+          cat "$T"
+
+          WALL_SEC=$(grep "Elapsed (wall clock)" "$T" | awk -F': ' '{print $2}')
+          USER_SEC=$(grep "User time" "$T" | awk -F': ' '{print $2}')
+          SYS_SEC=$(grep "System time" "$T" | awk -F': ' '{print $2}')
+          MAX_RSS=$(grep "Maximum resident set" "$T" | awk -F': ' '{print $2}')
+
+          echo "wall=$WALL_SEC" >> "$GITHUB_OUTPUT"
+          echo "user=$USER_SEC" >> "$GITHUB_OUTPUT"
+          echo "sys=$SYS_SEC" >> "$GITHUB_OUTPUT"
+          echo "max_rss_kb=$MAX_RSS" >> "$GITHUB_OUTPUT"
+
+      - name: Verify build-info has the expected docker.image.id
+        run: |
+          BNAME="perf-run-${{ github.run_id }}-${{ matrix.cli }}"
+          BNUM="${{ github.run_number }}"
+          jf rt bp "$BNAME" "$BNUM" || true
+          curl -sS -u admin:password "http://localhost:8082/artifactory/api/build/$BNAME/$BNUM" \
+            | python3 -c "import json,sys; bi=json.load(sys.stdin)['buildInfo']; m=bi['modules'][0]; p=m.get('properties') or {}; print('module:', m['id']); print('docker.image.id:', p.get('docker.image.id','(none)')); print('artifacts:', len(m.get('artifacts',[])))" || true
+
+      - name: Emit summary line
+        if: always()
+        run: |
+          {
+            echo "### ${{ matrix.cli }} · snapshotter=${{ !matrix.disable-containerd-snapshotter }}"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|---|---|"
+            echo "| CLI version | ${{ matrix.cli }} |"
+            echo "| containerd snapshotter | ${{ !matrix.disable-containerd-snapshotter }} |"
+            echo "| Image size (bytes) | ${{ steps.img.outputs.image_size_bytes }} |"
+            echo "| **Wall (h:mm:ss)** | **${{ steps.perf.outputs.wall }}** |"
+            echo "| User CPU (s) | ${{ steps.perf.outputs.user }} |"
+            echo "| Sys CPU (s) | ${{ steps.perf.outputs.sys }} |"
+            echo "| Max RSS (KB) | ${{ steps.perf.outputs.max_rss_kb }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload push log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: push-log-${{ matrix.cli }}-snap${{ !matrix.disable-containerd-snapshotter }}
+          path: push.log
+          if-no-files-found: warn
+
+  aggregate:
+    name: Aggregate summary
+    runs-on: ubuntu-24.04
+    needs: perf
+    if: always()
+    steps:
+      - name: Gather matrix outputs
+        run: |
+          echo "## Docker push + build-info perf summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Each cell used a UNIQUE image (random content) pushed to a UNIQUE path on a freshly-provisioned Artifactory instance in this runner. Per-cell cards were written by the perf job — see job summaries above." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Expected pattern:**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 2.97.0: baseline (pre-Docker-29-fix, uses \`docker images --no-trunc\`). Only works under legacy snapshotter for correct digest semantics." >> "$GITHUB_STEP_SUMMARY"
+          echo "- 2.98.0: regression introduced (\`WithUnbufferedOpener\`). Wall time scales with image size × N tarball accesses." >> "$GITHUB_STEP_SUMMARY"
+          echo "- 2.99.0: same regression as 2.98.0." >> "$GITHUB_STEP_SUMMARY"
