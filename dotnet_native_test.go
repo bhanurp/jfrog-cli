@@ -554,7 +554,7 @@ func TestDotnetFlexPackRestorePackageNotFound(t *testing.T) {
 	broken := strings.Replace(string(content), "</Project>",
 		`  <ItemGroup><PackageReference Include="This.Package.Does.Not.Exist.JFrog" Version="9.9.9" /></ItemGroup>
 </Project>`, 1)
-	require.NoError(t, os.WriteFile(csproj, []byte(broken), 0o600))
+	require.NoError(t, os.WriteFile(csproj, []byte(broken), 0o600)) //#nosec G703 -- test code, path is under the test's own temp project dir
 
 	assert.Error(t, restoreDotnetFlexPack(t, tests.NugetRemoteRepo),
 		"a missing package must fail the restore")
@@ -1025,7 +1025,7 @@ func TestDotnetFlexPackLocalRepoPublishAndResolve(t *testing.T) {
 	withRef := strings.Replace(string(content), "</Project>",
 		`  <ItemGroup><PackageReference Include="`+pkgId+`" Version="`+pkgVersion+`" /></ItemGroup>
 </Project>`, 1)
-	require.NoError(t, os.WriteFile(csproj, []byte(withRef), 0o600))
+	require.NoError(t, os.WriteFile(csproj, []byte(withRef), 0o600)) //#nosec G703 -- test code, path is under the test's own temp project dir
 
 	assert.NoError(t, restoreDotnetFlexPack(t, tests.NugetLocalRepo),
 		"a package published to a local repo must resolve back out of it")
@@ -1348,7 +1348,7 @@ func TestDotnetFlexPackPackNonPackableProject(t *testing.T) {
 	require.NoError(t, err)
 	nonPackable := strings.Replace(string(content), "</Project>",
 		"  <PropertyGroup><IsPackable>false</IsPackable></PropertyGroup>\n</Project>", 1)
-	require.NoError(t, os.WriteFile(csproj, []byte(nonPackable), 0o600))
+	require.NoError(t, os.WriteFile(csproj, []byte(nonPackable), 0o600)) //#nosec G703 -- test code, path is under the test's own temp project dir
 
 	require.NoError(t, restoreDotnetFlexPack(t, tests.NugetRemoteRepo))
 	buildNumber := "45"
@@ -1374,7 +1374,7 @@ func TestDotnetFlexPackLockfileRestore(t *testing.T) {
 	require.NoError(t, err)
 	withLock := strings.Replace(string(content), "</Project>",
 		"  <PropertyGroup><RestorePackagesWithLockFile>true</RestorePackagesWithLockFile></PropertyGroup>\n</Project>", 1)
-	require.NoError(t, os.WriteFile(csproj, []byte(withLock), 0o600))
+	require.NoError(t, os.WriteFile(csproj, []byte(withLock), 0o600)) //#nosec G703 -- test code, path is under the test's own temp project dir
 
 	buildNumber := "46"
 	assert.NoError(t, restoreDotnetFlexPack(t, tests.NugetRemoteRepo,
@@ -1398,7 +1398,7 @@ func TestDotnetFlexPackLockedModeInconsistency(t *testing.T) {
 	require.NoError(t, err)
 	withLock := strings.Replace(string(content), "</Project>",
 		"  <PropertyGroup><RestorePackagesWithLockFile>true</RestorePackagesWithLockFile></PropertyGroup>\n</Project>", 1)
-	require.NoError(t, os.WriteFile(csproj, []byte(withLock), 0o600))
+	require.NoError(t, os.WriteFile(csproj, []byte(withLock), 0o600)) //#nosec G703 -- test code, path is under the test's own temp project dir
 	require.NoError(t, restoreDotnetFlexPack(t, tests.NugetRemoteRepo))
 
 	// Add a reference the lock file has never seen, then demand locked mode.
@@ -1407,7 +1407,7 @@ func TestDotnetFlexPackLockedModeInconsistency(t *testing.T) {
 	drifted := strings.Replace(string(updated), "</Project>",
 		`  <ItemGroup><PackageReference Include="Newtonsoft.Json" Version="13.0.3" /></ItemGroup>
 </Project>`, 1)
-	require.NoError(t, os.WriteFile(csproj, []byte(drifted), 0o600))
+	require.NoError(t, os.WriteFile(csproj, []byte(drifted), 0o600)) //#nosec G703 -- test code, path is under the test's own temp project dir
 
 	assert.Error(t, restoreDotnetFlexPack(t, tests.NugetRemoteRepo, "--locked-mode"),
 		"--locked-mode against a drifted lock file must fail (NU1004)")
@@ -1435,7 +1435,7 @@ func TestDotnetFlexPackCentralPackageManagement(t *testing.T) {
 	cpm := strings.Replace(string(content), "</Project>",
 		`  <ItemGroup><PackageReference Include="Newtonsoft.Json" /></ItemGroup>
 </Project>`, 1)
-	require.NoError(t, os.WriteFile(csproj, []byte(cpm), 0o600))
+	require.NoError(t, os.WriteFile(csproj, []byte(cpm), 0o600)) //#nosec G703 -- test code, path is under the test's own temp project dir
 
 	buildNumber := "47"
 	require.NoError(t, restoreDotnetFlexPack(t, tests.NugetRemoteRepo,
@@ -1592,7 +1592,7 @@ func TestDotnetFlexPackPrivateAssetsScope(t *testing.T) {
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" PrivateAssets="all" />
   </ItemGroup>
 </Project>`, 1)
-	require.NoError(t, os.WriteFile(csproj, []byte(withPrivate), 0o600))
+	require.NoError(t, os.WriteFile(csproj, []byte(withPrivate), 0o600)) //#nosec G703 -- test code, path is under the test's own temp project dir
 
 	buildNumber := "53"
 	require.NoError(t, restoreDotnetFlexPack(t, tests.NugetRemoteRepo,
@@ -1787,7 +1787,7 @@ func TestDotnetFlexPackDependencyRangeResolvesConcreteVersion(t *testing.T) {
 	withRange := strings.Replace(string(content), "</Project>",
 		`  <ItemGroup><PackageReference Include="Newtonsoft.Json" Version="[13.0.0, 14.0.0)" /></ItemGroup>
 </Project>`, 1)
-	require.NoError(t, os.WriteFile(csproj, []byte(withRange), 0o600))
+	require.NoError(t, os.WriteFile(csproj, []byte(withRange), 0o600)) //#nosec G703 -- test code, path is under the test's own temp project dir
 
 	buildNumber := "71"
 	require.NoError(t, restoreDotnetFlexPack(t, tests.NugetRemoteRepo,
@@ -2055,7 +2055,7 @@ func TestDotnetFlexPackMultiTargetFrameworkGraph(t *testing.T) {
 		"<TargetFramework>netstandard2.0</TargetFramework>", "<TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>",
 		"<TargetFramework>net8.0</TargetFramework>", "<TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>",
 	).Replace(string(content))
-	require.NoError(t, os.WriteFile(csproj, []byte(multi), 0o600))
+	require.NoError(t, os.WriteFile(csproj, []byte(multi), 0o600)) //#nosec G703 -- test code, path is under the test's own temp project dir
 
 	buildNumber := "80"
 	// A multi-target restore may legitimately fail if the SDK lacks a targeting pack; the
@@ -2080,20 +2080,30 @@ func TestDotnetFlexPackHashMismatchRevalidates(t *testing.T) {
 
 	require.NoError(t, restoreDotnetFlexPack(t, tests.NugetRemoteRepo, "reference.sln"))
 
-	// Corrupt every sidecar hash in the isolated cache.
+	// Corrupt every sidecar hash in the isolated cache. Paths are collected during the walk and
+	// rewritten afterwards: performing the write inside the callback is race-prone, and the walk
+	// error must be propagated rather than swallowed.
 	cacheDir := filepath.Join(projectPath, ".packages")
-	var corrupted int
-	_ = filepath.Walk(cacheDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info == nil || info.IsDir() {
+	var sidecars []string
+	require.NoError(t, filepath.Walk(cacheDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info == nil || info.IsDir() {
 			return nil
 		}
 		if strings.HasSuffix(path, ".nupkg.sha512") {
-			if writeErr := os.WriteFile(path, []byte("bm90LWEtdmFsaWQtaGFzaA=="), 0o600); writeErr == nil {
-				corrupted++
-			}
+			sidecars = append(sidecars, path)
 		}
 		return nil
-	})
+	}))
+
+	var corrupted int
+	for _, sidecar := range sidecars {
+		if writeErr := os.WriteFile(sidecar, []byte("bm90LWEtdmFsaWQtaGFzaA=="), 0o600); writeErr == nil { //#nosec G703 -- test code, path collected from the test's own temp cache dir
+			corrupted++
+		}
+	}
 	if corrupted == 0 {
 		t.Skip("no .nupkg.sha512 sidecars were produced in the isolated cache")
 	}
@@ -2336,7 +2346,7 @@ func TestDotnetFlexPackLegacySymbolsFormat(t *testing.T) {
 	legacyPath := strings.TrimSuffix(nupkgPath, ".nupkg") + ".symbols.nupkg"
 	content, err := os.ReadFile(nupkgPath)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(legacyPath, content, 0o600))
+	require.NoError(t, os.WriteFile(legacyPath, content, 0o600)) //#nosec G703 -- test code, path is under the test's own temp project dir
 
 	buildNumber := "91"
 	// The legacy format is pushed as an ordinary package by the native client; the assertion is
