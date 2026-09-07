@@ -775,19 +775,16 @@ func TestDotnetFlexPackFlagPassthrough(t *testing.T) {
 		assert.NoError(t, restoreDotnetFlexPack(t, tests.NugetRemoteRepo, "reference.sln", "--verbosity", "quiet"))
 	})
 
-	// Scenario #81, KNOWN GAP. Credential injection appends "--configfile <temp>" to the end of
-	// the argument list, which puts it AFTER a user's "--" separator. Everything past "--" is
-	// forwarded to MSBuild, which does not know that switch, so the restore dies with:
+	// Scenario #81 - a user's "--" separator is respected. Everything after it is forwarded to
+	// MSBuild, so jf's injected --configfile has to be placed BEFORE the separator; appending it
+	// blindly used to send it to MSBuild's parser and fail the restore with:
 	//
 	//	MSBUILD : error MSB1001: Unknown switch.
 	//	Switch: --configfile
 	//
-	// The injected flag has to precede the separator. Asserted as the current failure rather than
-	// skipped, so the test starts passing on its own once the argument ordering is fixed.
+	// See insertBeforeSeparator in jfrog-cli-artifactory's nuget command.
 	t.Run("double-dash-separator", func(t *testing.T) {
-		err := restoreDotnetFlexPack(t, tests.NugetRemoteRepo, "reference.sln", "--", "--verbosity", "minimal")
-		assert.Error(t, err,
-			"known gap: jf appends --configfile after the user's -- separator, so MSBuild rejects it")
+		assert.NoError(t, restoreDotnetFlexPack(t, tests.NugetRemoteRepo, "reference.sln", "--", "--verbosity", "minimal"))
 	})
 }
 
